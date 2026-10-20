@@ -1,0 +1,45 @@
+name: Check Yahoo mail
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every 10 min (UTC); GitHub may delay runs by several minutes
+  workflow_dispatch:          # manual "Run workflow" button
+
+permissions:
+  contents: write             # needed to commit state.json back
+
+concurrency:
+  group: check-mail
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check mail and send WhatsApp alert
+        env:
+          YAHOO_USER: ${{ secrets.YAHOO_USER }}
+          YAHOO_APP_PASSWORD: ${{ secrets.YAHOO_APP_PASSWORD }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_WHATSAPP_FROM: ${{ secrets.TWILIO_WHATSAPP_FROM }}
+          WHATSAPP_TO: ${{ secrets.WHATSAPP_TO }}
+          TWILIO_CONTENT_SID: ${{ secrets.TWILIO_CONTENT_SID }}
+        run: python check_mail.py
+
+      - name: Persist last-seen UID
+        run: |
+          if [[ -n "$(git status --porcelain state.json)" ]]; then
+            git config user.name  "mail-watcher"
+            git config user.email "mail-watcher@users.noreply.github.com"
+            git add state.json
+            git commit -m "update state [skip ci]"
+            git push
+          fi
