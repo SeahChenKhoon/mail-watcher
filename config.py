@@ -44,7 +44,8 @@ WATCH_DOMAINS = [
     "livo.com",
     "gov.sg",
     "smfccl.sg",
-    "smfederation.org.sg"
+    "smfederation.org.sg",
+    "yahoo.com"
 ]
 
 MAX_SENDERS_IN_MESSAGE = 5      # extra ones are summarised as "+N more"
