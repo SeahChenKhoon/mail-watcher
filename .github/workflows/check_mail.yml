@@ -2,7 +2,7 @@ name: Check Yahoo mail
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # every 10 min (UTC); GitHub may delay runs by several minutes
+    - cron: "7,22,37,52 * * * *"   # every 15 min (UTC), off the busy :00/:10 marks; GitHub may still delay runs
   workflow_dispatch:          # manual "Run workflow" button
 
 permissions:
