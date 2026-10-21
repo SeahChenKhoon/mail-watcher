@@ -48,6 +48,12 @@ WATCH_DOMAINS = [
     "yahoo.com"
 ]
 
+# Senders from these domains are ignored, even if they also match WATCH_DOMAINS.
+# Same rule as above: matches the domain itself and any subdomain of it.
+EXCLUDE_DOMAINS = [
+    "notify.gov.sg",
+]
+
 MAX_SENDERS_IN_MESSAGE = 5      # extra ones are summarised as "+N more"
 MAX_MESSAGE_CHARS = 600         # keeps the template variable well under WhatsApp's limit
 

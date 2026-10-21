@@ -42,11 +42,17 @@ def save_state(uidvalidity: int, last_uid: int) -> None:
 
 # ------------------------------------------------------------- matching ------
 
+def _in_domains(domain: str, domains: list) -> bool:
+    return any(domain == d or domain.endswith("." + d) for d in domains)
+
+
 def domain_matches(address: str) -> bool:
     if "@" not in address:
         return False
     domain = address.rsplit("@", 1)[1].lower().strip(">").strip()
-    return any(domain == d or domain.endswith("." + d) for d in config.WATCH_DOMAINS)
+    if _in_domains(domain, config.EXCLUDE_DOMAINS):    # exclusion always wins
+        return False
+    return _in_domains(domain, config.WATCH_DOMAINS)
 
 
 def decode(value: str) -> str:
