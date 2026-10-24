@@ -46,6 +46,7 @@ WATCH_DOMAINS = [
     "smfccl.sg",
     "smfederation.org.sg",
     "healthhub.sg",
+    "yahoo.com",
 ]
 
 # Senders from these domains are ignored, even if they also match WATCH_DOMAINS.
