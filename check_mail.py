@@ -1,6 +1,6 @@
 """
-Check Yahoo Mail for new messages from watched domains and send a WhatsApp
-alert via Twilio's WhatsApp API.
+Check Yahoo Mail for new messages from watched domains and send a Telegram
+alert via the Telegram Bot API.
 
 Designed to be run repeatedly (e.g. every 10 min from GitHub Actions).
 "Since the last run" is tracked with the IMAP UID of the last message seen,
@@ -84,19 +84,19 @@ def fetch_new(conn: imaplib.IMAP4_SSL, last_uid: int):
     return matches, max_uid
 
 
-# ------------------------------------------------------------- WhatsApp ------
+# -------------------------------------------------------------- Telegram ------
 
 def clean(text: str, limit: int) -> str:
     """Collapse all whitespace (newlines, tabs, repeated spaces) to single spaces.
 
-    WhatsApp template variables may not contain newlines, tabs or 4+ consecutive spaces.
+    Keeps the alert on one tidy line.
     """
     text = re.sub(r"\s+", " ", text).strip()
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
 def build_message(matches: list) -> str:
-    """Single-line text for the template's {{1}} variable."""
+    """Single-line alert text."""
     shown = matches[: config.MAX_SENDERS_IN_MESSAGE]
     items = [f"{clean(m['name'] or m['from'], 40)} - {clean(m['subject'], 80)}" for m in shown]
     text = f"{len(matches)} new: " + " | ".join(items)
@@ -105,50 +105,28 @@ def build_message(matches: list) -> str:
     return clean(text, config.MAX_MESSAGE_CHARS)
 
 
-def send_whatsapp(text: str) -> None:
-    sid, token = config.twilio_sid(), config.twilio_token()
-    url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
-
-    fields = {
-        "From": f"whatsapp:{config.twilio_whatsapp_from()}",
-        "To": f"whatsapp:{config.whatsapp_to()}",
-    }
-    content_sid = config.twilio_content_sid()
-    if content_sid:
-        # Business-initiated alert: approved Content Template with one variable, {{1}}
-        fields["ContentSid"] = content_sid
-        fields["ContentVariables"] = json.dumps({"1": text})
-    else:
-        # Freeform text: only delivered inside the 24h window (testing / sandbox)
-        fields["Body"] = text
-
-    payload = urllib.parse.urlencode(fields).encode("utf-8")
-    auth = base64.b64encode(f"{sid}:{token}".encode()).decode()
+def send_alert(text: str) -> None:
+    token, chat_id = config.telegram_token(), config.telegram_chat_id()
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = urllib.parse.urlencode({"chat_id": chat_id, "text": text}).encode("utf-8")
 
     last_err = "unknown error"
     for attempt in (1, 2):
         req = urllib.request.Request(url, data=payload, method="POST")
-        req.add_header("Authorization", f"Basic {auth}")
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
-                if resp.status in (200, 201):
-                    return      # accepted by Twilio (delivery is asynchronous)
+                if resp.status == 200:
+                    return      # Telegram accepted it (delivery is near-instant)
                 last_err = f"HTTP {resp.status}"
         except urllib.error.HTTPError as e:
-            detail = ""
-            try:
-                err = json.loads(e.read().decode("utf-8", "ignore"))
-                detail = f" code={err.get('code')} message={err.get('message')}"
-            except Exception:
-                pass
-            last_err = f"HTTP {e.code}{detail}"
-            if e.code < 500:        # 4xx = our request is wrong (credentials, template, recipient): retry won't help
+            last_err = f"HTTP {e.code}"
+            if e.code < 500:    # 4xx = bad token / chat id (or you never messaged the bot): retry won't help
                 break
         except urllib.error.URLError as e:
             last_err = f"network error: {e.reason}"
         if attempt == 1:
             time.sleep(5)
-    raise RuntimeError(f"WhatsApp send failed ({last_err})")
+    raise RuntimeError(f"Telegram send failed ({last_err})")
 
 
 # ----------------------------------------------------------------- main ------
@@ -179,8 +157,8 @@ def main() -> int:
             pass
 
     if matches:
-        send_whatsapp(build_message(matches))   # if this raises, state is NOT advanced -> retried next run
-        print(f"WhatsApp alert sent for {len(matches)} email(s).")
+        send_alert(build_message(matches))   # if this raises, state is NOT advanced -> retried next run
+        print(f"Telegram alert sent for {len(matches)} email(s).")
     else:
         print("No new mail from watched domains.")
 
