@@ -65,6 +65,7 @@ WATCH_DOMAINS = [
 # Same rule as above: matches the domain itself and any subdomain of it.
 EXCLUDE_DOMAINS = [
     "notify.gov.sg",
+    "crowdtask.gov.sg",
 ]
 
 MAX_SENDERS_IN_MESSAGE = 5     # extra ones are summarised as "+N more"
